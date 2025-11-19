@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SmartFlash - A flashcard study tool for Python, English Vocabulary, and Linux Commands">
+    <meta name="theme-color" content="#4a90e2">
+    <title>SmartFlash - Flashcard Study Tool</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="icons/icon-192.png">
+</head>
+<body>
+    <div class="container">
+        <!-- Deck Selection Screen -->
+        <div id="deck-selection" class="screen active">
+            <h1>SmartFlash</h1>
+            <p class="subtitle">Choose a deck to study</p>
+            <div class="deck-grid">
+                <div class="deck-card" data-deck="python">
+                    <div class="deck-icon">🐍</div>
+                    <h2>Python</h2>
+                    <p class="deck-count">10 cards</p>
+                </div>
+                <div class="deck-card" data-deck="english">
+                    <div class="deck-icon">📚</div>
+                    <h2>English Vocabulary</h2>
+                    <p class="deck-count">10 cards</p>
+                </div>
+                <div class="deck-card" data-deck="linux">
+                    <div class="deck-icon">🐧</div>
+                    <h2>Linux Commands</h2>
+                    <p class="deck-count">10 cards</p>
+                </div>
+            </div>
+            <div id="stats-display" class="stats-display">
+                <div class="stat-item">
+                    <span class="stat-label">Known:</span>
+                    <span id="total-known" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Unknown:</span>
+                    <span id="total-unknown" class="stat-value">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Study Screen -->
+        <div id="study-screen" class="screen">
+            <div class="study-header">
+                <button id="back-btn" class="back-btn">← Back</button>
+                <h2 id="current-deck-name"></h2>
+                <div class="progress">
+                    <span id="card-number">1</span> / <span id="total-cards">10</span>
+                </div>
+            </div>
+
+            <div class="flashcard-container">
+                <div id="flashcard" class="flashcard">
+                    <div class="card-front">
+                        <div class="card-content">
+                            <h3 id="card-front-text"></h3>
+                        </div>
+                    </div>
+                    <div class="card-back">
+                        <div class="card-content">
+                            <h3 id="card-back-text"></h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="study-controls">
+                <button id="flip-btn" class="flip-btn">Flip Card</button>
+                <div class="action-buttons">
+                    <button id="forgot-btn" class="action-btn forgot-btn">I forgot</button>
+                    <button id="knew-btn" class="action-btn knew-btn">I knew this</button>
+                </div>
+                <button id="next-btn" class="next-btn" disabled>Next Card →</button>
+            </div>
+
+            <div class="study-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Known:</span>
+                    <span id="deck-known" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Unknown:</span>
+                    <span id="deck-unknown" class="stat-value">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+

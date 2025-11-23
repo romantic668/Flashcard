@@ -109,7 +109,8 @@ let isFlipped = false;
 let stats = {
     python: { known: 0, unknown: 0 },
     english: { known: 0, unknown: 0 },
-    linux: { known: 0, unknown: 0 }
+    linux: { known: 0, unknown: 0 },
+    generated: { known: 0, unknown: 0 }
 };
 
 // DOM Elements
@@ -133,17 +134,43 @@ const totalKnown = document.getElementById('total-known');
 const totalUnknown = document.getElementById('total-unknown');
 
 // Backend API configuration
-const API_BASE_URL = 'http://localhost:3000/api';
+// Automatically detect if we're in production or development
+const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:3000/api'
+    : `${window.location.origin}/api`;
 let useBackend = false;
 
 // Initialize
 async function init() {
     loadStats();
+    loadCEFRLevel(); // Load saved CEFR level preference
     await loadDecksFromBackend();
     updateDeckCounts();
+    updateDeckGrid(); // Dynamically create deck cards
     updateStatsDisplay();
     setupEventListeners();
+    setupModuleEventListeners(); // Setup new module listeners
+    setupBottomNavigation(); // Setup bottom nav
+    populateDeckExplorer(); // Populate deck explorer
+    populateAIDeckSelect(); // Populate AI deck selector
     registerServiceWorker();
+}
+
+// Load CEFR level from localStorage
+function loadCEFRLevel() {
+    const saved = localStorage.getItem('smartflash-cefr-level');
+    const cefrSelect = document.getElementById('cefr-level');
+    if (saved && cefrSelect) {
+        cefrSelect.value = saved;
+    }
+}
+
+// Save CEFR level to localStorage
+function saveCEFRLevel() {
+    const cefrSelect = document.getElementById('cefr-level');
+    if (cefrSelect) {
+        localStorage.setItem('smartflash-cefr-level', cefrSelect.value);
+    }
 }
 
 // Try to load decks from backend, fallback to local data
@@ -152,9 +179,10 @@ async function loadDecksFromBackend() {
         const response = await fetch(`${API_BASE_URL}/decks`);
         if (response.ok) {
             const backendDecks = await response.json();
-            decks = backendDecks;
+            // Merge backend decks with local decks (backend takes precedence for overlapping IDs)
+            decks = { ...decks, ...backendDecks };
             useBackend = true;
-            console.log('Loaded decks from backend');
+            console.log('Loaded decks from backend:', Object.keys(backendDecks).length, 'decks');
         } else {
             console.log('Backend not available, using local data');
         }
@@ -179,72 +207,291 @@ function updateDeckCounts() {
     if (linuxCount && decks.linux) {
         linuxCount.textContent = `${decks.linux.cards.length} cards`;
     }
+    
+    // Update counts for dynamically generated decks
+    for (const [deckId, deckData] of Object.entries(decks)) {
+        if (deckId.startsWith('gen-')) {
+            const countElement = document.getElementById(`${deckId}-count`);
+            if (countElement) {
+                countElement.textContent = `${deckData.cards.length} cards`;
+            }
+        }
+    }
+}
+
+// Get CEFR level display info
+function getCEFRInfo(level) {
+    const cefrInfo = {
+        'A1': { label: 'A1 - Beginner', color: '#4CAF50', icon: '🟢' },
+        'A2': { label: 'A2 - Elementary', color: '#8BC34A', icon: '🟡' },
+        'B1': { label: 'B1 - Intermediate', color: '#FFC107', icon: '🟠' },
+        'B2': { label: 'B2 - Upper Intermediate', color: '#FF9800', icon: '🟠' },
+        'C1': { label: 'C1 - Advanced', color: '#F44336', icon: '🔴' },
+        'C2': { label: 'C2 - Proficient', color: '#D32F2F', icon: '🔴' }
+    };
+    return cefrInfo[level] || { label: 'General', color: '#9E9E9E', icon: '⚪' };
+}
+
+// Dynamically update deck grid with all decks organized by CEFR level
+function updateDeckGrid() {
+    const deckCategories = document.getElementById('deck-categories');
+    if (!deckCategories) return;
+    
+    // Clear existing content
+    deckCategories.innerHTML = '';
+    
+    // Organize decks by CEFR level
+    const decksByLevel = {
+        'A1': [],
+        'A2': [],
+        'B1': [],
+        'B2': [],
+        'C1': [],
+        'C2': [],
+        'general': [] // For decks without CEFR level (python, linux, etc.)
+    };
+    
+    // Categorize all decks
+    for (const [deckId, deckData] of Object.entries(decks)) {
+        const cefrLevel = deckData.cefrLevel || null;
+        
+        if (cefrLevel && decksByLevel[cefrLevel]) {
+            decksByLevel[cefrLevel].push({ id: deckId, ...deckData });
+        } else {
+            // Main decks (python, english, linux) go to general
+            if (['python', 'english', 'linux'].includes(deckId)) {
+                decksByLevel.general.push({ id: deckId, ...deckData });
+            } else {
+                // Generated decks without CEFR level go to general
+                decksByLevel.general.push({ id: deckId, ...deckData });
+            }
+        }
+    }
+    
+    // Create category sections
+    const cefrOrder = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'general'];
+    
+    for (const level of cefrOrder) {
+        const levelDecks = decksByLevel[level];
+        if (levelDecks.length === 0) continue;
+        
+        // Create category header
+        const categoryDiv = document.createElement('div');
+        categoryDiv.className = 'deck-category';
+        
+        const cefrInfo = level === 'general' 
+            ? { label: 'General Decks', color: '#9E9E9E', icon: '📚' }
+            : getCEFRInfo(level);
+        
+        categoryDiv.innerHTML = `
+            <div class="category-header" style="border-left: 4px solid ${cefrInfo.color}">
+                <h3 class="category-title">${cefrInfo.icon} ${cefrInfo.label}</h3>
+                <span class="category-count">${levelDecks.length} deck${levelDecks.length !== 1 ? 's' : ''}</span>
+            </div>
+            <div class="deck-grid"></div>
+        `;
+        
+        const deckGrid = categoryDiv.querySelector('.deck-grid');
+        
+        // Add decks to this category
+        for (const deck of levelDecks) {
+            const deckCard = createDeckCard(deck.id, deck);
+            deckGrid.appendChild(deckCard);
+        }
+        
+        deckCategories.appendChild(categoryDiv);
+    }
+    
+    // Re-attach event listeners for all deck cards
+    setupDeckEventListeners();
+}
+
+// Create a deck card element
+function createDeckCard(deckId, deckData) {
+    const deckCard = document.createElement('div');
+    deckCard.className = 'deck-card';
+    deckCard.setAttribute('data-deck', deckId);
+    
+    // Determine icon based on deck type
+    let icon = '📖';
+    if (deckId === 'python') icon = '🐍';
+    else if (deckId === 'english') icon = '📚';
+    else if (deckId === 'linux') icon = '🐧';
+    else if (deckId.startsWith('gen-')) icon = '📖';
+    
+    // Get CEFR badge if available
+    let cefrBadge = '';
+    if (deckData.cefrLevel) {
+        const cefrInfo = getCEFRInfo(deckData.cefrLevel);
+        cefrBadge = `<span class="cefr-badge" style="background: ${cefrInfo.color}">${deckData.cefrLevel}</span>`;
+    }
+    
+    deckCard.innerHTML = `
+        <div class="deck-icon">${icon}</div>
+        <h2>${deckData.name}</h2>
+        <p class="deck-count" id="${deckId}-count">${deckData.cards.length} cards</p>
+        ${cefrBadge}
+    `;
+    
+    return deckCard;
+}
+
+// Setup event listeners for deck cards
+function setupDeckEventListeners() {
+    const deckCards = document.querySelectorAll('.deck-card');
+    deckCards.forEach(card => {
+        // Remove existing listeners by cloning
+        const newCard = card.cloneNode(true);
+        card.parentNode.replaceChild(newCard, card);
+        
+        // Add new listener
+        newCard.addEventListener('click', () => {
+            const deckKey = newCard.dataset.deck;
+            if (deckKey && decks[deckKey]) {
+                startDeck(deckKey);
+            }
+        });
+    });
 }
 
 // Event Listeners
 function setupEventListeners() {
-    // Deck selection
-    if (deckCards && deckCards.length > 0) {
-        deckCards.forEach(card => {
-            card.addEventListener('click', () => {
-                const deckKey = card.dataset.deck;
-                if (deckKey && decks[deckKey]) {
-                    startDeck(deckKey);
-                }
-            });
-        });
-    }
+    // Deck selection - use setupDeckEventListeners for dynamic decks
+    setupDeckEventListeners();
+
+    // Re-query DOM elements to ensure they exist (in case they weren't found initially)
+    const backBtnEl = document.getElementById('back-btn');
+    const flipBtnEl = document.getElementById('flip-btn');
+    const forgotBtnEl = document.getElementById('forgot-btn');
+    const knewBtnEl = document.getElementById('knew-btn');
+    const nextBtnEl = document.getElementById('next-btn');
+    const flashcardEl = document.getElementById('flashcard');
 
     // Back button
-    if (backBtn) {
-        backBtn.addEventListener('click', () => {
+    if (backBtnEl) {
+        backBtnEl.addEventListener('click', () => {
             showDeckSelection();
         });
+    } else {
+        console.warn('Back button not found');
     }
 
     // Flip button
-    if (flipBtn) {
-        flipBtn.addEventListener('click', flipCard);
+    if (flipBtnEl) {
+        flipBtnEl.addEventListener('click', flipCard);
+    } else {
+        console.warn('Flip button not found');
     }
 
     // Flashcard click
-    if (flashcard) {
-        flashcard.addEventListener('click', flipCard);
+    if (flashcardEl) {
+        flashcardEl.addEventListener('click', flipCard);
+    } else {
+        console.warn('Flashcard element not found');
     }
 
     // Action buttons
-    if (forgotBtn) {
-        forgotBtn.addEventListener('click', (e) => {
+    if (forgotBtnEl) {
+        forgotBtnEl.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
             console.log('Forgot button clicked');
             markCard(false);
         });
+    } else {
+        console.warn('Forgot button not found');
     }
     
-    if (knewBtn) {
-        knewBtn.addEventListener('click', (e) => {
+    if (knewBtnEl) {
+        knewBtnEl.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
             console.log('Knew button clicked');
             markCard(true);
         });
+    } else {
+        console.warn('Knew button not found');
     }
 
     // Next button
-    if (nextBtn) {
-        nextBtn.addEventListener('click', nextCard);
+    if (nextBtnEl) {
+        nextBtnEl.addEventListener('click', nextCard);
+    } else {
+        console.warn('Next button not found');
+    }
+    
+    // URL generation
+    const generateBtn = document.getElementById('generate-btn');
+    const urlInput = document.getElementById('url-input');
+    const cefrSelect = document.getElementById('cefr-level');
+    
+    if (generateBtn) {
+        generateBtn.addEventListener('click', generateFlashcardsFromURL);
+    }
+    
+    if (urlInput) {
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                generateFlashcardsFromURL();
+            }
+        });
+    }
+    
+    // Save CEFR level when changed
+    if (cefrSelect) {
+        cefrSelect.addEventListener('change', saveCEFRLevel);
+    }
+    
+    // CEFR info tooltip
+    const cefrInfo = document.getElementById('cefr-info');
+    if (cefrInfo) {
+        cefrInfo.addEventListener('click', () => {
+            const info = `
+CEFR Levels:
+• A1-A2: Beginner (1,000 most common words)
+• B1-B2: Intermediate (3,000 most common words)
+• C1-C2: Advanced (beyond 3,000 words)
+
+Words are checked online for appropriate difficulty level.
+            `.trim();
+            alert(info);
+        });
     }
 }
 
 // Deck Management
 function startDeck(deckKey) {
+    // Check if deck exists
+    if (!decks[deckKey]) {
+        console.error('Deck not found:', deckKey);
+        alert('Deck not found. Please try again.');
+        return;
+    }
+    
+    // Check if deck has cards
+    if (!decks[deckKey].cards || decks[deckKey].cards.length === 0) {
+        alert('This deck is empty. Please generate some flashcards first.');
+        return;
+    }
+    
     currentDeck = deckKey;
     currentCardIndex = 0;
     isFlipped = false;
     
-    currentDeckName.textContent = decks[deckKey].name;
-    totalCards.textContent = decks[deckKey].cards.length;
+    // Initialize stats for this deck if it doesn't exist
+    if (!stats[deckKey]) {
+        stats[deckKey] = { known: 0, unknown: 0 };
+    }
+    
+    const currentDeckName = document.getElementById('current-deck-name');
+    const totalCards = document.getElementById('total-cards');
+    
+    if (currentDeckName) {
+        currentDeckName.textContent = decks[deckKey].name;
+    }
+    if (totalCards) {
+        totalCards.textContent = decks[deckKey].cards.length;
+    }
     
     showStudyScreen();
     displayCard();
@@ -264,14 +511,26 @@ function showStudyScreen() {
 
 // Card Display
 function displayCard() {
+    // Safety check
+    if (!decks[currentDeck] || !decks[currentDeck].cards || decks[currentDeck].cards.length === 0) {
+        console.error('No cards available for deck:', currentDeck);
+        return;
+    }
+    
     const card = decks[currentDeck].cards[currentCardIndex];
+    if (!card) {
+        console.error('Card not found at index:', currentCardIndex);
+        return;
+    }
+    
     cardFrontText.textContent = card.front;
     cardBackText.textContent = card.back;
     
-    // Reset flip state
-    if (isFlipped) {
-        flashcard.classList.remove('flipped');
-        isFlipped = false;
+    // Always ensure card shows front (word) when displaying
+    isFlipped = false;
+    const flashcardEl = document.getElementById('flashcard');
+    if (flashcardEl) {
+        flashcardEl.classList.remove('flipped');
     }
     
     // Update card number
@@ -279,39 +538,49 @@ function displayCard() {
         cardNumber.textContent = currentCardIndex + 1;
     }
     
+    // Re-query buttons to ensure they exist
+    const forgotBtnEl = document.getElementById('forgot-btn');
+    const knewBtnEl = document.getElementById('knew-btn');
+    const nextBtnEl = document.getElementById('next-btn');
+    
     // Disable action buttons until flipped
-    if (forgotBtn) {
-        forgotBtn.disabled = true;
+    if (forgotBtnEl) {
+        forgotBtnEl.disabled = true;
     }
-    if (knewBtn) {
-        knewBtn.disabled = true;
+    if (knewBtnEl) {
+        knewBtnEl.disabled = true;
     }
-    if (nextBtn) {
-        nextBtn.disabled = true;
+    if (nextBtnEl) {
+        nextBtnEl.disabled = true;
     }
 }
 
 function flipCard() {
     isFlipped = !isFlipped;
-    if (flashcard) {
-        flashcard.classList.toggle('flipped');
+    const flashcardEl = document.getElementById('flashcard');
+    if (flashcardEl) {
+        flashcardEl.classList.toggle('flipped');
     }
+    
+    // Re-query buttons to ensure they exist
+    const forgotBtnEl = document.getElementById('forgot-btn');
+    const knewBtnEl = document.getElementById('knew-btn');
     
     // Enable action buttons after flip
     if (isFlipped) {
-        if (forgotBtn) {
-            forgotBtn.disabled = false;
+        if (forgotBtnEl) {
+            forgotBtnEl.disabled = false;
         }
-        if (knewBtn) {
-            knewBtn.disabled = false;
+        if (knewBtnEl) {
+            knewBtnEl.disabled = false;
         }
         console.log('Card flipped, buttons enabled');
     } else {
-        if (forgotBtn) {
-            forgotBtn.disabled = true;
+        if (forgotBtnEl) {
+            forgotBtnEl.disabled = true;
         }
-        if (knewBtn) {
-            knewBtn.disabled = true;
+        if (knewBtnEl) {
+            knewBtnEl.disabled = true;
         }
     }
 }
@@ -329,6 +598,11 @@ function markCard(knew) {
         return;
     }
     
+    // Initialize stats for this deck if it doesn't exist
+    if (!stats[currentDeck]) {
+        stats[currentDeck] = { known: 0, unknown: 0 };
+    }
+    
     // Update stats
     if (knew) {
         stats[currentDeck].known++;
@@ -339,17 +613,22 @@ function markCard(knew) {
     saveStats();
     updateStudyStats();
     
+    // Re-query buttons to ensure they exist
+    const forgotBtnEl = document.getElementById('forgot-btn');
+    const knewBtnEl = document.getElementById('knew-btn');
+    const nextBtnEl = document.getElementById('next-btn');
+    
     // Enable next button
-    if (nextBtn) {
-        nextBtn.disabled = false;
+    if (nextBtnEl) {
+        nextBtnEl.disabled = false;
     }
     
     // Disable action buttons to prevent double-clicking
-    if (forgotBtn) {
-        forgotBtn.disabled = true;
+    if (forgotBtnEl) {
+        forgotBtnEl.disabled = true;
     }
-    if (knewBtn) {
-        knewBtn.disabled = true;
+    if (knewBtnEl) {
+        knewBtnEl.disabled = true;
     }
     
     console.log('Card marked:', knew ? 'known' : 'unknown', 'Stats:', stats[currentDeck]);
@@ -365,7 +644,13 @@ function nextCard() {
         return;
     }
     
+    // Reset flip state immediately and ensure card shows front
     isFlipped = false;
+    const flashcardEl = document.getElementById('flashcard');
+    if (flashcardEl) {
+        flashcardEl.classList.remove('flipped');
+    }
+    
     displayCard();
     updateStudyStats();
 }
@@ -380,13 +665,34 @@ function updateStatsDisplay() {
         totalUnknownCount += deckStats.unknown;
     });
     
-    totalKnown.textContent = totalKnownCount;
-    totalUnknown.textContent = totalUnknownCount;
+    // Re-query elements to ensure they exist
+    const totalKnownEl = document.getElementById('total-known');
+    const totalUnknownEl = document.getElementById('total-unknown');
+    
+    if (totalKnownEl) {
+        totalKnownEl.textContent = totalKnownCount;
+    }
+    if (totalUnknownEl) {
+        totalUnknownEl.textContent = totalUnknownCount;
+    }
 }
 
 function updateStudyStats() {
-    deckKnown.textContent = stats[currentDeck].known;
-    deckUnknown.textContent = stats[currentDeck].unknown;
+    // Initialize stats if they don't exist
+    if (!stats[currentDeck]) {
+        stats[currentDeck] = { known: 0, unknown: 0 };
+    }
+    
+    // Re-query elements to ensure they exist
+    const deckKnownEl = document.getElementById('deck-known');
+    const deckUnknownEl = document.getElementById('deck-unknown');
+    
+    if (deckKnownEl) {
+        deckKnownEl.textContent = stats[currentDeck].known;
+    }
+    if (deckUnknownEl) {
+        deckUnknownEl.textContent = stats[currentDeck].unknown;
+    }
 }
 
 function saveStats() {
@@ -425,6 +731,624 @@ function registerServiceWorker() {
                     console.log('Service Worker registration failed:', error);
                 });
         });
+    }
+}
+
+// URL Generation
+async function generateFlashcardsFromURL() {
+    const urlInput = document.getElementById('url-input');
+    const url = urlInput?.value.trim();
+    
+    if (!url) {
+        showGenerationStatus('Please enter a URL', 'error');
+        return;
+    }
+    
+    // Validate URL
+    try {
+        new URL(url);
+    } catch (error) {
+        showGenerationStatus('Invalid URL format. Please enter a valid URL (e.g., https://example.com)', 'error');
+        return;
+    }
+    
+    // Disable button and show loading
+    const generateBtn = document.getElementById('generate-btn');
+    if (generateBtn) {
+        generateBtn.disabled = true;
+        generateBtn.textContent = 'Generating...';
+    }
+    
+    showGenerationStatus('Fetching webpage and processing...', 'loading');
+    
+    // Get CEFR level from selector
+    const cefrLevelSelect = document.getElementById('cefr-level');
+    const cefrLevel = cefrLevelSelect ? cefrLevelSelect.value : 'B1';
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/generate-from-url`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ url, cefrLevel })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            const deckName = result.deckName || 'New Deck';
+            showGenerationStatus(
+                `Created deck "${deckName}" with ${result.stats?.cardsCreated || 0} flashcards!`,
+                'success'
+            );
+            
+            // Reload decks to show new deck
+            await loadDecksFromBackend();
+            updateDeckCounts();
+            updateDeckGrid(); // Dynamically update deck grid
+            updateStatsDisplay();
+            
+            // Clear input after short delay
+            setTimeout(() => {
+                if (urlInput) urlInput.value = '';
+            }, 2000);
+        } else {
+            showGenerationStatus(result.message || 'Failed to generate flashcards', 'error');
+        }
+    } catch (error) {
+        console.error('Error generating flashcards:', error);
+        showGenerationStatus('Failed to connect to server. Make sure the backend is running.', 'error');
+    } finally {
+        if (generateBtn) {
+            generateBtn.disabled = false;
+            generateBtn.textContent = 'Generate Flashcards';
+        }
+    }
+}
+
+function showGenerationStatus(message, type) {
+    const generationStatus = document.getElementById('generation-status');
+    if (!generationStatus) return;
+    
+    generationStatus.textContent = message;
+    generationStatus.className = `generation-status ${type}`;
+    
+    // Auto-hide success messages after 5 seconds
+    if (type === 'success') {
+        setTimeout(() => {
+            if (generationStatus.textContent === message) {
+                generationStatus.textContent = '';
+                generationStatus.className = 'generation-status';
+            }
+        }, 5000);
+    }
+}
+
+// Module Functions
+
+// Get difficulty label from CEFR level
+function getDifficultyLabel(cefrLevel) {
+    if (!cefrLevel) return { label: 'Unrated', class: 'unrated' };
+    
+    const difficultyMap = {
+        'A1': { label: 'Easy', class: 'easy' },
+        'A2': { label: 'Easy', class: 'easy' },
+        'B1': { label: 'Medium', class: 'medium' },
+        'B2': { label: 'Medium', class: 'medium' },
+        'C1': { label: 'Hard', class: 'hard' },
+        'C2': { label: 'Hard', class: 'hard' }
+    };
+    
+    return difficultyMap[cefrLevel] || { label: 'Unrated', class: 'unrated' };
+}
+
+// Populate Deck Explorer
+function populateDeckExplorer(filter = 'all') {
+    const deckList = document.getElementById('deck-explorer-list');
+    if (!deckList) return;
+    
+    deckList.innerHTML = '';
+    
+    // Check if decks object is empty or not loaded yet
+    if (!decks || Object.keys(decks).length === 0) {
+        deckList.innerHTML = '<div style="text-align: center; color: var(--text-light); padding: 20px;">No decks available. Generate some flashcards to get started!</div>';
+        return;
+    }
+    
+    let filteredDecks = [];
+    
+    for (const [deckId, deckData] of Object.entries(decks)) {
+        // Ensure deckData has required properties
+        if (!deckData || !deckData.name) continue;
+        
+        const cards = deckData.cards || [];
+        const difficulty = getDifficultyLabel(deckData.cefrLevel);
+        
+        if (filter === 'all' || 
+            (filter === 'easy' && difficulty.class === 'easy') ||
+            (filter === 'medium' && difficulty.class === 'medium') ||
+            (filter === 'hard' && difficulty.class === 'hard') ||
+            (filter === 'unrated' && difficulty.class === 'unrated')) {
+            
+            filteredDecks.push({ 
+                id: deckId, 
+                name: deckData.name,
+                cefrLevel: deckData.cefrLevel || null,
+                cards: cards,
+                difficulty: difficulty
+            });
+        }
+    }
+    
+    if (filteredDecks.length === 0) {
+        deckList.innerHTML = '<div style="text-align: center; color: var(--text-light); padding: 20px;">No decks found for this filter.</div>';
+        return;
+    }
+    
+    filteredDecks.forEach(deck => {
+        const deckItem = document.createElement('div');
+        deckItem.className = 'deck-list-item';
+        const cardCount = deck.cards ? deck.cards.length : 0;
+        deckItem.innerHTML = `
+            <div class="deck-item-info">
+                <div class="deck-item-title">${deck.name}</div>
+                <div class="deck-item-meta">
+                    <span>${cardCount} cards</span>
+                    <span class="deck-item-difficulty difficulty-${deck.difficulty.class}">${deck.difficulty.label}</span>
+                </div>
+            </div>
+            <button class="deck-item-open-btn" data-deck-id="${deck.id}">Open</button>
+        `;
+        deckList.appendChild(deckItem);
+    });
+    
+    // Add click listeners to Open buttons
+    deckList.querySelectorAll('.deck-item-open-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const deckId = btn.dataset.deckId;
+            if (decks[deckId]) {
+                startDeck(deckId);
+            }
+        });
+    });
+}
+
+// Populate AI Deck Selector
+function populateAIDeckSelect() {
+    const aiDeckSelect = document.getElementById('ai-deck-select');
+    if (!aiDeckSelect) return;
+    
+    // Clear existing options except the first one
+    aiDeckSelect.innerHTML = '<option value="">Choose a deck...</option>';
+    
+    // Check if decks object is empty or not loaded yet
+    if (!decks || Object.keys(decks).length === 0) {
+        return;
+    }
+    
+    for (const [deckId, deckData] of Object.entries(decks)) {
+        // Ensure deckData has required properties
+        if (!deckData || !deckData.name) continue;
+        
+        const cardCount = deckData.cards ? deckData.cards.length : 0;
+        const option = document.createElement('option');
+        option.value = deckId;
+        option.textContent = `${deckData.name} (${cardCount} cards)`;
+        aiDeckSelect.appendChild(option);
+    }
+}
+
+// Setup Module Event Listeners
+function setupModuleEventListeners() {
+    // Deck Explorer Filter Chips
+    const filterChips = document.querySelectorAll('.filter-chip');
+    filterChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+            // Remove active class from all chips
+            filterChips.forEach(c => c.classList.remove('active'));
+            // Add active class to clicked chip
+            chip.classList.add('active');
+            // Filter decks
+            const filter = chip.dataset.filter;
+            populateDeckExplorer(filter);
+        });
+    });
+    
+    // Module URL Generation
+    const moduleGenerateBtn = document.getElementById('module-generate-btn');
+    const moduleUrlInput = document.getElementById('module-url-input');
+    const moduleCefrLevel = document.getElementById('module-cefr-level');
+    const topNInput = document.getElementById('topn-input');
+    const moduleStatus = document.getElementById('module-generation-status');
+    
+    if (moduleGenerateBtn) {
+        moduleGenerateBtn.addEventListener('click', () => {
+            generateFlashcardsFromURLModule();
+        });
+    }
+    
+    if (moduleUrlInput) {
+        moduleUrlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                generateFlashcardsFromURLModule();
+            }
+        });
+    }
+    
+    // Quick Preview
+    const quickPreviewBtn = document.getElementById('quick-preview-btn');
+    if (quickPreviewBtn) {
+        quickPreviewBtn.addEventListener('click', async () => {
+            await handleQuickPreview();
+        });
+    }
+    
+    // AI Chat
+    const aiAskBtn = document.getElementById('ai-ask-btn');
+    if (aiAskBtn) {
+        aiAskBtn.addEventListener('click', () => {
+            handleAIChat();
+        });
+    }
+    
+    const aiPromptInput = document.getElementById('ai-prompt-input');
+    if (aiPromptInput) {
+        aiPromptInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                handleAIChat();
+            }
+        });
+    }
+}
+
+// Generate Flashcards from URL (Module Version)
+async function generateFlashcardsFromURLModule() {
+    const urlInput = document.getElementById('module-url-input');
+    const cefrSelect = document.getElementById('module-cefr-level');
+    const topNInput = document.getElementById('topn-input');
+    const generateBtn = document.getElementById('module-generate-btn');
+    const statusEl = document.getElementById('module-generation-status');
+    
+    const url = urlInput?.value.trim();
+    const cefrLevel = cefrSelect ? cefrSelect.value : 'B1';
+    const topN = topNInput ? parseInt(topNInput.value) || 20 : 20;
+    
+    if (!url) {
+        showModuleStatus('Please enter a URL', 'error');
+        return;
+    }
+    
+    try {
+        new URL(url);
+    } catch (error) {
+        showModuleStatus('Invalid URL format. Please enter a valid URL', 'error');
+        return;
+    }
+    
+    if (generateBtn) {
+        generateBtn.disabled = true;
+        generateBtn.textContent = 'Generating...';
+    }
+    
+    showModuleStatus('Fetching webpage and processing...', 'loading');
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/generate-from-url`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ url, cefrLevel, topN })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            const deckName = result.deckName || 'New Deck';
+            showModuleStatus(
+                `✓ Created deck "${deckName}" with ${result.stats?.cardsCreated || 0} flashcards!`,
+                'success'
+            );
+            
+            // Reload decks
+            await loadDecksFromBackend();
+            updateDeckCounts();
+            updateDeckGrid();
+            populateDeckExplorer(); // Refresh deck explorer
+            populateAIDeckSelect(); // Refresh AI deck selector
+            updateStatsDisplay();
+            
+            // Clear input after delay
+            setTimeout(() => {
+                if (urlInput) urlInput.value = '';
+            }, 2000);
+        } else {
+            showModuleStatus(result.message || 'Failed to generate flashcards', 'error');
+        }
+    } catch (error) {
+        console.error('Error generating flashcards:', error);
+        showModuleStatus('Failed to connect to server. Make sure the backend is running.', 'error');
+    } finally {
+        if (generateBtn) {
+            generateBtn.disabled = false;
+            generateBtn.textContent = 'Create Cards';
+        }
+    }
+}
+
+// Handle Quick Preview
+async function handleQuickPreview() {
+    const urlInput = document.getElementById('module-url-input');
+    const cefrSelect = document.getElementById('module-cefr-level');
+    const topNInput = document.getElementById('topn-input');
+    const previewBtn = document.getElementById('quick-preview-btn');
+    
+    const url = urlInput?.value.trim();
+    const cefrLevel = cefrSelect ? cefrSelect.value : 'B1';
+    const topN = topNInput ? parseInt(topNInput.value) || 20 : 20;
+    
+    if (!url) {
+        showModuleStatus('Please enter a URL first', 'error');
+        return;
+    }
+    
+    try {
+        new URL(url);
+    } catch (error) {
+        showModuleStatus('Invalid URL format. Please enter a valid URL', 'error');
+        return;
+    }
+    
+    if (previewBtn) {
+        previewBtn.disabled = true;
+        previewBtn.textContent = 'Previewing...';
+    }
+    
+    showModuleStatus('Fetching webpage and analyzing...', 'loading');
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/preview-url`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ url, cefrLevel, topN })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            const wordList = result.words || [];
+            const pageTitle = result.pageTitle || 'Preview';
+            
+            if (wordList.length === 0) {
+                showModuleStatus('No words found that match your CEFR level. Try adjusting the difficulty or using a different article.', 'info');
+            } else {
+                const wordsText = wordList.slice(0, 20).join(', ');
+                const moreText = wordList.length > 20 ? ` and ${wordList.length - 20} more...` : '';
+                showModuleStatus(
+                    `Preview: "${pageTitle}"\n\nWould extract ${wordList.length} words (CEFR ${cefrLevel}, top ${topN}):\n\n${wordsText}${moreText}`,
+                    'success'
+                );
+            }
+        } else {
+            showModuleStatus(result.message || 'Failed to preview URL', 'error');
+        }
+    } catch (error) {
+        console.error('Error in quick preview:', error);
+        showModuleStatus('Failed to connect to server. Make sure the backend is running.', 'error');
+    } finally {
+        if (previewBtn) {
+            previewBtn.disabled = false;
+            previewBtn.textContent = 'Quick Preview';
+        }
+    }
+}
+
+// Show Module Status
+function showModuleStatus(message, type) {
+    const statusEl = document.getElementById('module-generation-status');
+    if (!statusEl) return;
+    
+    statusEl.textContent = message;
+    statusEl.className = `status-message ${type}`;
+    
+    if (type === 'success') {
+        setTimeout(() => {
+            if (statusEl.textContent === message) {
+                statusEl.textContent = '';
+                statusEl.className = 'status-message';
+            }
+        }, 10000); // Keep preview visible longer (10 seconds)
+    }
+}
+
+// Handle AI Chat
+async function handleAIChat() {
+    const deckSelect = document.getElementById('ai-deck-select');
+    const promptInput = document.getElementById('ai-prompt-input');
+    const askBtn = document.getElementById('ai-ask-btn');
+    const responseContainer = document.getElementById('ai-response-container');
+    
+    const deckId = deckSelect?.value;
+    const prompt = promptInput?.value.trim();
+    
+    if (!deckId) {
+        showAIResponse('Please select a deck first.', 'error');
+        return;
+    }
+    
+    if (!prompt) {
+        showAIResponse('Please enter a question or request.', 'error');
+        return;
+    }
+    
+    if (askBtn) {
+        askBtn.disabled = true;
+        askBtn.textContent = 'Thinking...';
+    }
+    
+    showAIResponse('Processing your request...', 'loading');
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/ai-chat`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ deckId, prompt })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showAIResponse(result.response || result.message, 'success');
+        } else {
+            showAIResponse(result.message || 'Failed to get AI response', 'error');
+        }
+    } catch (error) {
+        console.error('Error in AI chat:', error);
+        showAIResponse('Failed to connect to AI service. Please try again later.', 'error');
+    } finally {
+        if (askBtn) {
+            askBtn.disabled = false;
+            askBtn.textContent = 'Ask AI';
+        }
+    }
+}
+
+// Show AI Response
+function showAIResponse(message, type) {
+    const responseContainer = document.getElementById('ai-response-container');
+    if (!responseContainer) return;
+    
+    // Clear placeholder if it exists
+    const placeholder = responseContainer.querySelector('.ai-response-placeholder');
+    if (placeholder) {
+        placeholder.remove();
+    }
+    
+    if (type === 'loading') {
+        responseContainer.innerHTML = `<div class="ai-response loading">${message}</div>`;
+    } else if (type === 'error') {
+        responseContainer.innerHTML = `<div class="ai-response" style="color: #c62828;">${message}</div>`;
+    } else {
+        // Format the response with line breaks
+        const formattedMessage = message.replace(/\n/g, '<br>');
+        responseContainer.innerHTML = `<div class="ai-response">${formattedMessage}</div>`;
+    }
+}
+
+// Bottom Navigation Setup
+function setupBottomNavigation() {
+    const navItems = document.querySelectorAll('.nav-item');
+    const modulesContainer = document.getElementById('modules-container');
+    const deckCategories = document.getElementById('deck-categories');
+    
+    navItems.forEach(item => {
+        item.addEventListener('click', () => {
+            const view = item.dataset.view;
+            
+            // Remove active class from all nav items
+            navItems.forEach(nav => nav.classList.remove('active'));
+            // Add active class to clicked item
+            item.classList.add('active');
+            
+            // Hide modules container
+            if (modulesContainer) {
+                modulesContainer.style.display = 'none';
+            }
+            
+            // Hide all module cards
+            const allModuleCards = document.querySelectorAll('.module-card');
+            allModuleCards.forEach(card => {
+                card.style.display = 'none';
+            });
+            
+            // Show appropriate view
+            switch(view) {
+                case 'home':
+                    // Show deck categories, hide modules
+                    if (deckCategories) {
+                        deckCategories.style.display = 'block';
+                    }
+                    break;
+                case 'explorer':
+                    // Show deck explorer module
+                    if (deckCategories) {
+                        deckCategories.style.display = 'none';
+                    }
+                    if (modulesContainer) {
+                        modulesContainer.style.display = 'grid';
+                        modulesContainer.style.gridTemplateColumns = '1fr';
+                    }
+                    const explorerCard = document.querySelectorAll('.module-card')[0];
+                    if (explorerCard) {
+                        explorerCard.style.display = 'flex';
+                    }
+                    break;
+                case 'generate':
+                    // Show generate flashcards module
+                    if (deckCategories) {
+                        deckCategories.style.display = 'none';
+                    }
+                    if (modulesContainer) {
+                        modulesContainer.style.display = 'grid';
+                        modulesContainer.style.gridTemplateColumns = '1fr';
+                    }
+                    const generateCard = document.querySelectorAll('.module-card')[1];
+                    if (generateCard) {
+                        generateCard.style.display = 'flex';
+                    }
+                    break;
+                case 'ai-chat':
+                    // Show AI chat module
+                    if (deckCategories) {
+                        deckCategories.style.display = 'none';
+                    }
+                    if (modulesContainer) {
+                        modulesContainer.style.display = 'grid';
+                        modulesContainer.style.gridTemplateColumns = '1fr';
+                    }
+                    const aiCard = document.querySelectorAll('.module-card')[2];
+                    if (aiCard) {
+                        aiCard.style.display = 'flex';
+                    }
+                    break;
+            }
+        });
+    });
+}
+
+// Delete a single deck
+async function deleteDeck(deckId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/decks/${deckId}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Remove from local decks object
+            delete decks[deckId];
+            
+            // Reload decks from backend
+            await loadDecksFromBackend();
+            updateDeckCounts();
+            updateDeckGrid();
+            populateDeckExplorer(); // Refresh deck explorer
+            populateAIDeckSelect(); // Refresh AI deck selector
+            updateStatsDisplay();
+            
+            console.log('Deck deleted:', deckId);
+        } else {
+            alert(result.error || 'Failed to delete deck');
+        }
+    } catch (error) {
+        console.error('Error deleting deck:', error);
+        alert('Failed to delete deck. Please try again.');
     }
 }
 

@@ -24,6 +24,7 @@ function initializeDatabase() {
             db.run(`CREATE TABLE IF NOT EXISTS decks (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
+                cefr_level TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )`, (err) => {
                 if (err) {
@@ -88,8 +89,35 @@ function initializeDatabase() {
                         resolve();
                     }).catch(reject);
                 } else {
-                    db.close();
-                    resolve();
+                    // Ensure generated deck exists (for existing databases)
+                    db.get('SELECT id FROM decks WHERE id = ?', ['generated'], (err, deck) => {
+                        if (err) {
+                            console.error('Error checking generated deck:', err);
+                            db.close();
+                            reject(err);
+                            return;
+                        }
+                        
+                        if (!deck) {
+                            // Create generated deck if it doesn't exist
+                            db.run('INSERT INTO decks (id, name, cefr_level) VALUES (?, ?, ?)', ['generated', 'My Generated Flashcards', null], (err) => {
+                                if (err) {
+                                    console.error('Error creating generated deck:', err);
+                                } else {
+                                    console.log('Created generated deck for existing database');
+                                }
+                                db.close();
+                                resolve();
+                            });
+                        } else {
+                            // Add cefr_level column if it doesn't exist (for existing databases)
+                            db.run('ALTER TABLE decks ADD COLUMN cefr_level TEXT', (err) => {
+                                // Ignore error if column already exists
+                                db.close();
+                                resolve();
+                            });
+                        }
+                    });
                 }
             });
         });
@@ -199,15 +227,21 @@ function seedInitialData(db) {
                     { front: 'What does cron do?', back: 'Time-based job scheduler. Uses crontab to schedule commands to run periodically at fixed times.' },
                     { front: 'What does screen do?', back: 'Terminal multiplexer that allows multiple terminal sessions within a single window. Sessions persist after disconnection.' }
                 ]
+            },
+            generated: {
+                name: 'My Generated Flashcards',
+                cards: [] // Empty initially, will be populated by URL generation
             }
         };
 
-        const stmtDeck = db.prepare('INSERT INTO decks (id, name) VALUES (?, ?)');
+        const stmtDeck = db.prepare('INSERT INTO decks (id, name, cefr_level) VALUES (?, ?, ?)');
         const stmtCard = db.prepare('INSERT INTO cards (deck_id, front, back) VALUES (?, ?, ?)');
 
         db.serialize(() => {
             for (const [deckId, deckData] of Object.entries(initialDecks)) {
-                stmtDeck.run(deckId, deckData.name);
+                // Set CEFR levels for initial decks (English vocabulary is B1, others are general)
+                const cefrLevel = deckId === 'english' ? 'B1' : null;
+                stmtDeck.run(deckId, deckData.name, cefrLevel);
                 
                 for (const card of deckData.cards) {
                     stmtCard.run(deckId, card.front, card.back);

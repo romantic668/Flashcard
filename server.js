@@ -470,6 +470,42 @@ app.post('/api/preview-url', async (req, res) => {
     }
 });
 
+// Cleanup empty decks endpoint
+app.post('/api/decks/cleanup-empty', async (req, res) => {
+    try {
+        // Find all decks
+        const allDecks = await query('SELECT id, name FROM decks');
+        const deletedDecks = [];
+        
+        for (const deck of allDecks) {
+            // Check if deck has any cards
+            const cardCount = await queryOne(
+                'SELECT COUNT(*) as count FROM cards WHERE deck_id = ?',
+                [deck.id]
+            );
+            
+            if (cardCount && cardCount.count === 0) {
+                // Delete empty deck
+                await run('DELETE FROM decks WHERE id = ?', [deck.id]);
+                deletedDecks.push(deck.name);
+                console.log(`Deleted empty deck: ${deck.name} (${deck.id})`);
+            }
+        }
+        
+        res.json({
+            success: true,
+            message: `Deleted ${deletedDecks.length} empty deck(s)`,
+            deletedDecks: deletedDecks
+        });
+    } catch (error) {
+        console.error('Error cleaning up empty decks:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to cleanup empty decks' 
+        });
+    }
+});
+
 // AI Chat endpoint
 app.post('/api/ai-chat', async (req, res) => {
     try {

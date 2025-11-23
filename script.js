@@ -1000,6 +1000,18 @@ function setupModuleEventListeners() {
             }
         });
     }
+    
+    // Cleanup Empty Decks Button
+    const cleanupBtn = document.getElementById('cleanup-empty-decks-btn');
+    if (cleanupBtn) {
+        cleanupBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (confirm('Delete all decks with no cards? This action cannot be undone.')) {
+                await cleanupEmptyDecks();
+            }
+        });
+    }
 }
 
 // Generate Flashcards from URL (Module Version)
@@ -1349,6 +1361,58 @@ async function deleteDeck(deckId) {
     } catch (error) {
         console.error('Error deleting deck:', error);
         alert('Failed to delete deck. Please try again.');
+    }
+}
+
+// Cleanup all empty decks
+async function cleanupEmptyDecks() {
+    const cleanupBtn = document.getElementById('cleanup-empty-decks-btn');
+    if (cleanupBtn) {
+        cleanupBtn.disabled = true;
+        cleanupBtn.textContent = 'Cleaning...';
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/decks/cleanup-empty`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            const count = result.deletedDecks ? result.deletedDecks.length : 0;
+            if (count > 0) {
+                alert(`Successfully deleted ${count} empty deck(s):\n\n${result.deletedDecks.join('\n')}`);
+            } else {
+                alert('No empty decks found. All decks have cards!');
+            }
+            
+            // Reload decks from backend
+            await loadDecksFromBackend();
+            updateDeckCounts();
+            updateDeckGrid();
+            populateDeckExplorer(); // Refresh deck explorer
+            populateAIDeckSelect(); // Refresh AI deck selector
+            updateStatsDisplay();
+        } else {
+            alert(result.error || 'Failed to cleanup empty decks');
+        }
+    } catch (error) {
+        console.error('Error cleaning up empty decks:', error);
+        alert(`Failed to cleanup empty decks: ${error.message}. Please check the console for details.`);
+    } finally {
+        if (cleanupBtn) {
+            cleanupBtn.disabled = false;
+            cleanupBtn.innerHTML = '🗑️ Cleanup Empty';
+        }
     }
 }
 

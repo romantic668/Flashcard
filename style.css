@@ -608,6 +608,14 @@ h1 {
     margin-bottom: 20px;
     padding-bottom: 16px;
     border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.module-header > div {
+    flex: 1;
 }
 
 .module-title {
@@ -750,6 +758,30 @@ h1 {
 .deck-item-open-btn:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(74, 144, 226, 0.3);
+}
+
+.cleanup-btn {
+    padding: 6px 12px;
+    background: rgba(244, 67, 54, 0.1);
+    color: #f44336;
+    border: 1px solid rgba(244, 67, 54, 0.3);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.cleanup-btn:hover {
+    background: rgba(244, 67, 54, 0.2);
+    transform: translateY(-1px);
+}
+
+.cleanup-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
 }
 
 

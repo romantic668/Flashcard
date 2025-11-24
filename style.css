@@ -386,6 +386,11 @@ h1 {
     background: var(--card-bg);
 }
 
+.card-front {
+    background: linear-gradient(135deg, #667eea 0%, var(--primary-color) 100%);
+    color: white;
+}
+
 .card-back {
     transform: rotateY(180deg);
     background: linear-gradient(135deg, var(--primary-color) 0%, #667eea 100%);
@@ -404,8 +409,173 @@ h1 {
     word-wrap: break-word;
 }
 
+.card-front .card-content h3,
 .card-back .card-content h3 {
     color: white;
+}
+
+.card-front .audio-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
+/* Audio Controls */
+.audio-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+
+.audio-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.audio-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.audio-btn:active {
+    transform: translateY(0);
+}
+
+.audio-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.audio-btn.recording {
+    background: rgba(244, 67, 54, 0.3);
+    border-color: rgba(244, 67, 54, 0.5);
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.pronunciation-btn {
+    background: rgba(76, 175, 80, 0.2);
+    border-color: rgba(76, 175, 80, 0.3);
+}
+
+.pronunciation-btn:hover {
+    background: rgba(76, 175, 80, 0.3);
+    border-color: rgba(76, 175, 80, 0.5);
+}
+
+.audio-icon {
+    font-size: 1.2rem;
+}
+
+.audio-label {
+    font-size: 0.85rem;
+}
+
+/* Pronunciation Result */
+.pronunciation-result {
+    margin-top: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    backdrop-filter: blur(10px);
+    color: white;
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.pronunciation-result .score {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.pronunciation-result .score.excellent {
+    color: #4caf50;
+}
+
+.pronunciation-result .score.good {
+    color: #ffc107;
+}
+
+.pronunciation-result .score.needs-improvement {
+    color: #ff9800;
+}
+
+.pronunciation-result .score.poor {
+    color: #f44336;
+}
+
+.pronunciation-result .phonemes {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.pronunciation-result .suggestions {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.pronunciation-result .suggestions ul {
+    margin: 5px 0 0 20px;
+    padding: 0;
+}
+
+.pronunciation-result .suggestions li {
+    margin: 5px 0;
+}
+
+/* Mobile responsiveness for audio controls */
+@media (max-width: 768px) {
+    .audio-controls {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .audio-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 12px 16px;
+    }
+    
+    .audio-label {
+        font-size: 0.9rem;
+    }
+    
+    .pronunciation-result {
+        font-size: 0.85rem;
+        padding: 12px;
+    }
+    
+    .pronunciation-result .score {
+        font-size: 1.3rem;
+    }
 }
 
 /* Study Controls */

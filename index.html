@@ -120,11 +120,28 @@
                     <div class="card-front">
                         <div class="card-content">
                             <h3 id="card-front-text"></h3>
+                            <div class="audio-controls">
+                                <button id="tts-word-btn" class="audio-btn" title="Read this word">
+                                    <span class="audio-icon">🔊</span>
+                                    <span class="audio-label">Read Word</span>
+                                </button>
+                                <button id="pronunciation-btn" class="audio-btn pronunciation-btn" title="Practice pronunciation">
+                                    <span class="audio-icon">🎤</span>
+                                    <span class="audio-label">Practice</span>
+                                </button>
+                            </div>
+                            <div id="pronunciation-result" class="pronunciation-result" style="display: none;"></div>
                         </div>
                     </div>
                     <div class="card-back">
                         <div class="card-content">
                             <h3 id="card-back-text"></h3>
+                            <div class="audio-controls">
+                                <button id="tts-sentence-btn" class="audio-btn" title="Read example sentence">
+                                    <span class="audio-icon">🔊</span>
+                                    <span class="audio-label">Read Sentence</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

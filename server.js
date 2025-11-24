@@ -718,6 +718,153 @@ app.post('/api/ai-chat', async (req, res) => {
     }
 });
 
+// Pronunciation Evaluation endpoint
+app.post('/api/pronunciation-evaluate', async (req, res) => {
+    try {
+        const { targetWord, userSpeech } = req.body;
+        
+        if (!targetWord || !userSpeech) {
+            return res.status(400).json({
+                success: false,
+                message: 'Target word and user speech are required'
+            });
+        }
+        
+        // Normalize inputs
+        const target = targetWord.toLowerCase().trim();
+        const user = userSpeech.toLowerCase().trim();
+        
+        // Calculate similarity using Levenshtein distance
+        const similarity = calculateSimilarity(target, user);
+        
+        // Find incorrect phonemes (simplified - character-level differences)
+        const incorrectPhonemes = findPhonemeDifferences(target, user);
+        
+        // Generate improvement suggestions
+        const suggestions = generatePronunciationSuggestions(similarity, incorrectPhonemes);
+        
+        res.json({
+            success: true,
+            similarity: Math.round(similarity),
+            incorrectPhonemes: incorrectPhonemes.slice(0, 5), // Limit to 5
+            suggestions: suggestions
+        });
+        
+    } catch (error) {
+        console.error('Error in pronunciation evaluation:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to evaluate pronunciation'
+        });
+    }
+});
+
+// Helper function to calculate similarity using Levenshtein distance
+function calculateSimilarity(str1, str2) {
+    const len1 = str1.length;
+    const len2 = str2.length;
+    
+    // Create a matrix
+    const matrix = [];
+    for (let i = 0; i <= len1; i++) {
+        matrix[i] = [i];
+    }
+    for (let j = 0; j <= len2; j++) {
+        matrix[0][j] = j;
+    }
+    
+    // Fill the matrix
+    for (let i = 1; i <= len1; i++) {
+        for (let j = 1; j <= len2; j++) {
+            if (str1[i - 1] === str2[j - 1]) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j] + 1,     // deletion
+                    matrix[i][j - 1] + 1,     // insertion
+                    matrix[i - 1][j - 1] + 1  // substitution
+                );
+            }
+        }
+    }
+    
+    const distance = matrix[len1][len2];
+    const maxLen = Math.max(len1, len2);
+    const similarity = ((maxLen - distance) / maxLen) * 100;
+    
+    return Math.max(0, similarity);
+}
+
+// Find phoneme differences
+function findPhonemeDifferences(target, user) {
+    const differences = [];
+    const minLen = Math.min(target.length, user.length);
+    const maxLen = Math.max(target.length, user.length);
+    
+    for (let i = 0; i < minLen; i++) {
+        if (target[i] !== user[i]) {
+            differences.push({
+                position: i,
+                expected: target[i],
+                actual: user[i] || 'missing'
+            });
+        }
+    }
+    
+    // Handle extra characters
+    if (user.length > target.length) {
+        for (let i = target.length; i < user.length; i++) {
+            differences.push({
+                position: i,
+                expected: 'none',
+                actual: user[i]
+            });
+        }
+    } else if (target.length > user.length) {
+        for (let i = user.length; i < target.length; i++) {
+            differences.push({
+                position: i,
+                expected: target[i],
+                actual: 'missing'
+            });
+        }
+    }
+    
+    return differences;
+}
+
+// Generate pronunciation suggestions
+function generatePronunciationSuggestions(similarity, incorrectPhonemes) {
+    const suggestions = [];
+    
+    if (similarity >= 90) {
+        suggestions.push('Excellent pronunciation! You\'re doing great.');
+        suggestions.push('Keep practicing to maintain consistency.');
+    } else if (similarity >= 75) {
+        suggestions.push('Good pronunciation! You\'re very close.');
+        suggestions.push('Focus on the specific sounds highlighted above.');
+        suggestions.push('Try saying the word slowly, then gradually speed up.');
+    } else if (similarity >= 60) {
+        suggestions.push('You\'re making progress! Keep practicing.');
+        suggestions.push('Listen to the word again using the "Read Word" button.');
+        suggestions.push('Break the word into syllables and practice each part.');
+    } else {
+        suggestions.push('Keep practicing! Pronunciation improves with repetition.');
+        suggestions.push('Listen carefully to the word pronunciation first.');
+        suggestions.push('Try breaking the word into smaller parts.');
+        suggestions.push('Record yourself and compare with the correct pronunciation.');
+    }
+    
+    if (incorrectPhonemes.length > 0) {
+        const commonIssues = incorrectPhonemes.slice(0, 3);
+        if (commonIssues.length > 0) {
+            suggestions.push(`Pay special attention to the ${commonIssues.length > 1 ? 'sounds' : 'sound'} at position${commonIssues.length > 1 ? 's' : ''} ${commonIssues.map(p => p.position + 1).join(', ')}.`);
+        }
+    }
+    
+    return suggestions;
+}
+
 // Serve the main app
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));

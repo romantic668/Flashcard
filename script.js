@@ -142,6 +142,9 @@ let useBackend = false;
 
 // Initialize
 async function init() {
+    // Request microphone permission automatically on page load
+    requestMicrophonePermission();
+    
     loadStats();
     loadCEFRLevel(); // Load saved CEFR level preference
     await loadDecksFromBackend();
@@ -154,6 +157,26 @@ async function init() {
     populateDeckExplorer(); // Populate deck explorer
     populateAIDeckSelect(); // Populate AI deck selector
     registerServiceWorker();
+}
+
+// Request microphone permission automatically
+async function requestMicrophonePermission() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.log('MediaDevices API not supported');
+        return;
+    }
+    
+    try {
+        // Request microphone permission
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Stop the stream immediately - we just needed permission
+        stream.getTracks().forEach(track => track.stop());
+        console.log('Microphone permission granted');
+    } catch (error) {
+        // Permission denied or error - that's okay, user can grant it later when they click Practice
+        console.log('Microphone permission not granted yet:', error.name);
+        // Don't show alert here - permission will be requested again when user clicks Practice
+    }
 }
 
 // Load CEFR level from localStorage
@@ -420,6 +443,32 @@ function setupEventListeners() {
         console.warn('Next button not found');
     }
     
+    // Audio/TTS buttons
+    const ttsWordBtn = document.getElementById('tts-word-btn');
+    const ttsSentenceBtn = document.getElementById('tts-sentence-btn');
+    const pronunciationBtn = document.getElementById('pronunciation-btn');
+    
+    if (ttsWordBtn) {
+        ttsWordBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            speakWord();
+        });
+    }
+    
+    if (ttsSentenceBtn) {
+        ttsSentenceBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            speakSentence();
+        });
+    }
+    
+    if (pronunciationBtn) {
+        pronunciationBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            startPronunciationPractice();
+        });
+    }
+    
     // URL generation
     const generateBtn = document.getElementById('generate-btn');
     const urlInput = document.getElementById('url-input');
@@ -525,6 +574,13 @@ function displayCard() {
     
     cardFrontText.textContent = card.front;
     cardBackText.textContent = card.back;
+    
+    // Hide pronunciation result when displaying new card
+    const pronunciationResult = document.getElementById('pronunciation-result');
+    if (pronunciationResult) {
+        pronunciationResult.style.display = 'none';
+        pronunciationResult.innerHTML = '';
+    }
     
     // Always ensure card shows front (word) when displaying
     isFlipped = false;
@@ -1414,6 +1470,470 @@ async function cleanupEmptyDecks() {
             cleanupBtn.innerHTML = '🗑️ Cleanup Empty';
         }
     }
+}
+
+// Text-to-Speech Functions
+let currentSpeech = null;
+
+function speakWord() {
+    if (!currentDeck || !decks[currentDeck]) return;
+    
+    const card = decks[currentDeck].cards[currentCardIndex];
+    if (!card) return;
+    
+    const word = card.front;
+    
+    // Stop any current speech
+    if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
+    
+    // Use Web Speech API
+    if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(word);
+        utterance.lang = 'en-US';
+        utterance.rate = 0.9;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        
+        // Try to use an American English voice
+        const voices = window.speechSynthesis.getVoices();
+        const americanVoice = voices.find(v => v.lang === 'en-US' && (v.name.includes('US') || v.name.includes('American'))) ||
+                             voices.find(v => v.lang === 'en-US') ||
+                             voices.find(v => v.lang.startsWith('en-US'));
+        if (americanVoice) {
+            utterance.voice = americanVoice;
+        }
+        
+        currentSpeech = utterance;
+        window.speechSynthesis.speak(utterance);
+        
+        // Update button state
+        const btn = document.getElementById('tts-word-btn');
+        if (btn) {
+            btn.disabled = true;
+            utterance.onend = () => {
+                btn.disabled = false;
+                currentSpeech = null;
+            };
+            utterance.onerror = () => {
+                btn.disabled = false;
+                currentSpeech = null;
+            };
+        }
+    } else {
+        alert('Text-to-speech is not supported in your browser.');
+    }
+}
+
+function speakSentence() {
+    if (!currentDeck || !decks[currentDeck]) return;
+    
+    const card = decks[currentDeck].cards[currentCardIndex];
+    if (!card) return;
+    
+    // Extract sentence from card back (look for "Example:" or use definition)
+    let sentence = '';
+    const backText = card.back;
+    
+    // Try to find example sentence
+    const exampleMatch = backText.match(/[Ee]xample[:\s]+(.+?)(?:\n|$)/);
+    if (exampleMatch && exampleMatch[1]) {
+        sentence = exampleMatch[1].trim();
+    } else {
+        // Use the definition as fallback
+        sentence = backText.split('\n')[0].replace(/\[.*?\]\s*/, '').trim();
+    }
+    
+    if (!sentence) {
+        alert('No example sentence found for this card.');
+        return;
+    }
+    
+    // Stop any current speech
+    if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
+    
+    // Use Web Speech API
+    if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(sentence);
+        utterance.lang = 'en-US';
+        utterance.rate = 0.85;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        
+        // Try to use an American English voice
+        const voices = window.speechSynthesis.getVoices();
+        const americanVoice = voices.find(v => v.lang === 'en-US' && (v.name.includes('US') || v.name.includes('American'))) ||
+                             voices.find(v => v.lang === 'en-US') ||
+                             voices.find(v => v.lang.startsWith('en-US'));
+        if (americanVoice) {
+            utterance.voice = americanVoice;
+        }
+        
+        currentSpeech = utterance;
+        window.speechSynthesis.speak(utterance);
+        
+        // Update button state
+        const btn = document.getElementById('tts-sentence-btn');
+        if (btn) {
+            btn.disabled = true;
+            utterance.onend = () => {
+                btn.disabled = false;
+                currentSpeech = null;
+            };
+            utterance.onerror = () => {
+                btn.disabled = false;
+                currentSpeech = null;
+            };
+        }
+    } else {
+        alert('Text-to-speech is not supported in your browser.');
+    }
+}
+
+// Load voices when available
+if ('speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = () => {
+        // Voices loaded
+    };
+}
+
+// Pronunciation Practice
+let recognition = null;
+let isRecording = false;
+
+function initializeSpeechRecognition() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        return null;
+    }
+    
+    try {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognitionInstance = new SpeechRecognition();
+        recognitionInstance.continuous = false;
+        recognitionInstance.interimResults = false;
+        recognitionInstance.lang = 'en-US';
+        recognitionInstance.maxAlternatives = 1;
+        
+        return recognitionInstance;
+    } catch (error) {
+        console.error('Error initializing speech recognition:', error);
+        return null;
+    }
+}
+
+async function startPronunciationPractice() {
+    if (!currentDeck || !decks[currentDeck]) return;
+    
+    const card = decks[currentDeck].cards[currentCardIndex];
+    if (!card) return;
+    
+    const word = card.front;
+    const pronunciationBtn = document.getElementById('pronunciation-btn');
+    const resultDiv = document.getElementById('pronunciation-result');
+    
+    // Check browser support first
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        alert('Speech recognition is not supported in your browser. Please use Chrome, Edge, or Safari.');
+        return;
+    }
+    
+    // Initialize recognition if not already done
+    if (!recognition) {
+        recognition = initializeSpeechRecognition();
+        if (!recognition) {
+            alert('Failed to initialize speech recognition. Please refresh the page and try again.');
+            return;
+        }
+        
+        // Set up event handlers
+        recognition.onresult = async (event) => {
+            if (event.results && event.results.length > 0 && event.results[0].length > 0) {
+                const transcript = event.results[0][0].transcript.trim().toLowerCase();
+                const targetWord = word.toLowerCase();
+                
+                isRecording = false;
+                if (pronunciationBtn) {
+                    pronunciationBtn.classList.remove('recording');
+                    pronunciationBtn.innerHTML = '<span class="audio-icon">🎤</span><span class="audio-label">Practice</span>';
+                    pronunciationBtn.disabled = false;
+                }
+                
+                // Evaluate pronunciation
+                await evaluatePronunciation(targetWord, transcript);
+            } else {
+                isRecording = false;
+                if (pronunciationBtn) {
+                    pronunciationBtn.classList.remove('recording');
+                    pronunciationBtn.innerHTML = '<span class="audio-icon">🎤</span><span class="audio-label">Practice</span>';
+                    pronunciationBtn.disabled = false;
+                }
+                if (resultDiv) {
+                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = '<div style="text-align: center; color: #ff9800;">No speech detected. Please try again.</div>';
+                }
+            }
+        };
+        
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+            isRecording = false;
+            if (pronunciationBtn) {
+                pronunciationBtn.classList.remove('recording');
+                pronunciationBtn.innerHTML = '<span class="audio-icon">🎤</span><span class="audio-label">Practice</span>';
+                pronunciationBtn.disabled = false;
+            }
+            
+            let errorMsg = '';
+            if (event.error === 'no-speech') {
+                errorMsg = 'No speech detected. Please speak clearly and try again.';
+            } else if (event.error === 'audio-capture') {
+                errorMsg = 'No microphone found. Please check your microphone permissions and try again.';
+            } else if (event.error === 'not-allowed') {
+                errorMsg = 'Microphone permission denied. Please allow microphone access and try again.';
+            } else if (event.error === 'aborted') {
+                // User stopped it, don't show error
+                return;
+            } else if (event.error === 'network') {
+                errorMsg = 'Network error. Please check your connection and try again.';
+            } else {
+                errorMsg = 'Speech recognition error. Please try again.';
+            }
+            
+            if (errorMsg && resultDiv) {
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `<div style="text-align: center; color: #f44336;">${errorMsg}</div>`;
+            }
+        };
+        
+        recognition.onend = () => {
+            isRecording = false;
+            if (pronunciationBtn) {
+                pronunciationBtn.classList.remove('recording');
+                pronunciationBtn.innerHTML = '<span class="audio-icon">🎤</span><span class="audio-label">Practice</span>';
+                pronunciationBtn.disabled = false;
+            }
+        };
+        
+        recognition.onstart = () => {
+            console.log('Speech recognition started');
+            if (resultDiv) {
+                resultDiv.style.display = 'none';
+                resultDiv.innerHTML = '';
+            }
+        };
+    }
+    
+    if (isRecording) {
+        // Stop recording
+        try {
+            recognition.stop();
+        } catch (error) {
+            console.error('Error stopping recognition:', error);
+        }
+        isRecording = false;
+        if (pronunciationBtn) {
+            pronunciationBtn.classList.remove('recording');
+            pronunciationBtn.innerHTML = '<span class="audio-icon">🎤</span><span class="audio-label">Practice</span>';
+            pronunciationBtn.disabled = false;
+        }
+        return;
+    }
+    
+    // Check if we have microphone permission, request if needed
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Stop the stream immediately, we just needed permission
+        stream.getTracks().forEach(track => track.stop());
+    } catch (error) {
+        console.error('Microphone permission error:', error);
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+            if (resultDiv) {
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = '<div style="text-align: center; color: #f44336;">⚠️ Microphone permission denied. Please allow microphone access in your browser settings and try again.</div>';
+            }
+        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+            if (resultDiv) {
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = '<div style="text-align: center; color: #f44336;">⚠️ No microphone found. Please connect a microphone and try again.</div>';
+            }
+        } else {
+            if (resultDiv) {
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = '<div style="text-align: center; color: #f44336;">⚠️ Microphone access error. Please check your microphone settings and try again.</div>';
+            }
+        }
+        isRecording = false;
+        if (pronunciationBtn) {
+            pronunciationBtn.classList.remove('recording');
+            pronunciationBtn.innerHTML = '<span class="audio-icon">🎤</span><span class="audio-label">Practice</span>';
+            pronunciationBtn.disabled = false;
+        }
+        return;
+    }
+    
+    // Start recording
+    isRecording = true;
+    if (pronunciationBtn) {
+        pronunciationBtn.classList.add('recording');
+        pronunciationBtn.innerHTML = '<span class="audio-icon">⏹️</span><span class="audio-label">Stop</span>';
+        pronunciationBtn.disabled = false;
+    }
+    
+    if (resultDiv) {
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = '<div style="text-align: center;">🎤 Listening... Speak the word now.</div>';
+    }
+    
+    try {
+        // Add a small delay to ensure recognition is ready
+        setTimeout(() => {
+            if (recognition && isRecording) {
+                recognition.start();
+            }
+        }, 100);
+    } catch (error) {
+        console.error('Error starting recognition:', error);
+        isRecording = false;
+        if (pronunciationBtn) {
+            pronunciationBtn.classList.remove('recording');
+            pronunciationBtn.innerHTML = '<span class="audio-icon">🎤</span><span class="audio-label">Practice</span>';
+            pronunciationBtn.disabled = false;
+        }
+        if (resultDiv) {
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<div style="text-align: center; color: #f44336;">Failed to start recording. Please try again.</div>';
+        }
+    }
+}
+
+async function evaluatePronunciation(targetWord, userSpeech) {
+    const resultDiv = document.getElementById('pronunciation-result');
+    if (!resultDiv) return;
+    
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = '<div style="text-align: center;">Analyzing pronunciation...</div>';
+    
+    try {
+        // Call backend API for pronunciation evaluation
+        const response = await fetch(`${API_BASE_URL}/pronunciation-evaluate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                targetWord: targetWord,
+                userSpeech: userSpeech
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            displayPronunciationResult(result);
+        } else {
+            // Fallback to simple comparison if API fails
+            const simpleResult = simplePronunciationCheck(targetWord, userSpeech);
+            displayPronunciationResult(simpleResult);
+        }
+    } catch (error) {
+        console.error('Error evaluating pronunciation:', error);
+        // Fallback to simple comparison
+        const simpleResult = simplePronunciationCheck(targetWord, userSpeech);
+        displayPronunciationResult(simpleResult);
+    }
+}
+
+function simplePronunciationCheck(targetWord, userSpeech) {
+    // Simple similarity check based on character matching
+    const target = targetWord.toLowerCase().replace(/[^a-z]/g, '');
+    const user = userSpeech.toLowerCase().replace(/[^a-z]/g, '');
+    
+    // Calculate similarity
+    let matches = 0;
+    const maxLen = Math.max(target.length, user.length);
+    
+    for (let i = 0; i < Math.min(target.length, user.length); i++) {
+        if (target[i] === user[i]) {
+            matches++;
+        }
+    }
+    
+    const similarity = (matches / maxLen) * 100;
+    
+    // Find incorrect phonemes (simplified - just character differences)
+    const incorrectPhonemes = [];
+    for (let i = 0; i < Math.min(target.length, user.length); i++) {
+        if (target[i] !== user[i]) {
+            incorrectPhonemes.push({
+                position: i,
+                expected: target[i],
+                actual: user[i]
+            });
+        }
+    }
+    
+    // Generate suggestions
+    const suggestions = [];
+    if (similarity < 70) {
+        suggestions.push('Try to pronounce each syllable more clearly');
+        suggestions.push('Listen to the word again using the "Read Word" button');
+    } else if (similarity < 90) {
+        suggestions.push('You\'re close! Focus on the parts highlighted above');
+        suggestions.push('Practice saying the word slowly, then speed up');
+    } else {
+        suggestions.push('Great pronunciation! Keep practicing to perfect it');
+    }
+    
+    return {
+        success: true,
+        similarity: Math.round(similarity),
+        incorrectPhonemes: incorrectPhonemes.slice(0, 5), // Limit to 5
+        suggestions: suggestions
+    };
+}
+
+function displayPronunciationResult(result) {
+    const resultDiv = document.getElementById('pronunciation-result');
+    if (!resultDiv) return;
+    
+    const similarity = result.similarity || 0;
+    let scoreClass = 'poor';
+    let scoreLabel = 'Needs Practice';
+    
+    if (similarity >= 90) {
+        scoreClass = 'excellent';
+        scoreLabel = 'Excellent!';
+    } else if (similarity >= 75) {
+        scoreClass = 'good';
+        scoreLabel = 'Good!';
+    } else if (similarity >= 60) {
+        scoreClass = 'needs-improvement';
+        scoreLabel = 'Getting There';
+    }
+    
+    let html = `<div class="score ${scoreClass}">${scoreLabel} - ${similarity}% Match</div>`;
+    
+    if (result.incorrectPhonemes && result.incorrectPhonemes.length > 0) {
+        html += `<div class="phonemes"><strong>Areas to improve:</strong><ul>`;
+        result.incorrectPhonemes.forEach(phoneme => {
+            html += `<li>Position ${phoneme.position + 1}: Expected "${phoneme.expected}", heard "${phoneme.actual}"</li>`;
+        });
+        html += `</ul></div>`;
+    }
+    
+    if (result.suggestions && result.suggestions.length > 0) {
+        html += `<div class="suggestions"><strong>Tips:</strong><ul>`;
+        result.suggestions.forEach(suggestion => {
+            html += `<li>${suggestion}</li>`;
+        });
+        html += `</ul></div>`;
+    }
+    
+    resultDiv.innerHTML = html;
+    resultDiv.style.display = 'block';
 }
 
 // Initialize app when DOM is ready

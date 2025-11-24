@@ -529,83 +529,203 @@ h1 {
     font-size: 0.85rem;
 }
 
+/* Pronunciation Result Modal */
+.pronunciation-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+}
+
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    position: relative;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: slideUp 0.3s ease;
+    z-index: 2001;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 25px;
+    border-bottom: 2px solid #e0e0e0;
+    background: linear-gradient(135deg, var(--primary-color) 0%, #667eea 100%);
+    color: white;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.modal-close {
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    padding: 0;
+}
+
+.modal-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: rotate(90deg);
+}
+
+.modal-body {
+    padding: 25px;
+    overflow-y: auto;
+    max-height: calc(80vh - 80px);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
 /* Pronunciation Result */
 .pronunciation-result {
-    margin-top: 15px;
-    padding: 15px;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 10px;
-    backdrop-filter: blur(10px);
-    color: white;
-    font-size: 0.9rem;
-    line-height: 1.6;
+    padding: 0;
+    color: #333;
+    font-size: 1rem;
+    line-height: 1.7;
     width: 100%;
-    max-width: 100%;
     box-sizing: border-box;
-    flex-shrink: 0;
     text-align: left;
 }
 
 .pronunciation-result .score {
-    font-size: 1.4rem;
+    font-size: 1.8rem;
     font-weight: 700;
-    margin-bottom: 15px;
+    margin-bottom: 20px;
     text-align: center;
-    padding-bottom: 10px;
-    border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+    padding: 15px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
 }
 
 .pronunciation-result .score.excellent {
     color: #4caf50;
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
 }
 
 .pronunciation-result .score.good {
-    color: #ffc107;
+    color: #ff9800;
+    background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
 }
 
 .pronunciation-result .score.needs-improvement {
     color: #ff9800;
+    background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
 }
 
 .pronunciation-result .score.poor {
     color: #f44336;
+    background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
 }
 
 .pronunciation-result .phonemes {
-    margin-top: 15px;
-    padding-top: 15px;
-    border-top: 1px solid rgba(255, 255, 255, 0.3);
+    margin-top: 25px;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 12px;
+    border-left: 4px solid #ff9800;
 }
 
 .pronunciation-result .phonemes strong {
     display: block;
-    margin-bottom: 8px;
-    font-size: 1rem;
+    margin-bottom: 12px;
+    font-size: 1.1rem;
+    color: #333;
+    font-weight: 700;
 }
 
 .pronunciation-result .suggestions {
-    margin-top: 15px;
-    padding-top: 15px;
-    border-top: 1px solid rgba(255, 255, 255, 0.3);
+    margin-top: 25px;
+    padding: 20px;
+    background: #f0f7ff;
+    border-radius: 12px;
+    border-left: 4px solid var(--primary-color);
 }
 
 .pronunciation-result .suggestions strong {
     display: block;
-    margin-bottom: 8px;
-    font-size: 1rem;
+    margin-bottom: 12px;
+    font-size: 1.1rem;
+    color: #333;
+    font-weight: 700;
 }
 
 .pronunciation-result .suggestions ul,
 .pronunciation-result .phonemes ul {
-    margin: 8px 0 0 20px;
+    margin: 12px 0 0 25px;
     padding: 0;
     list-style-type: disc;
 }
 
 .pronunciation-result .suggestions li,
 .pronunciation-result .phonemes li {
-    margin: 6px 0;
-    line-height: 1.5;
+    margin: 10px 0;
+    line-height: 1.6;
+    color: #555;
+}
+
+.pronunciation-result .phonemes li {
+    font-family: 'Courier New', monospace;
+    background: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin: 8px 0;
+    border: 1px solid #e0e0e0;
 }
 
 /* Mobile responsiveness for audio controls */

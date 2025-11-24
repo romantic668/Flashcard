@@ -575,11 +575,10 @@ function displayCard() {
     cardFrontText.textContent = card.front;
     cardBackText.textContent = card.back;
     
-    // Hide pronunciation result when displaying new card
-    const pronunciationResult = document.getElementById('pronunciation-result');
-    if (pronunciationResult) {
-        pronunciationResult.style.display = 'none';
-        pronunciationResult.innerHTML = '';
+    // Hide pronunciation modal when displaying new card
+    const pronunciationModal = document.getElementById('pronunciation-modal');
+    if (pronunciationModal) {
+        pronunciationModal.style.display = 'none';
     }
     
     // Always ensure card shows front (word) when displaying
@@ -1670,9 +1669,11 @@ async function startPronunciationPractice() {
                     pronunciationBtn.innerHTML = '<span class="audio-icon">🎤</span><span class="audio-label">Practice</span>';
                     pronunciationBtn.disabled = false;
                 }
-                if (resultDiv) {
-                    resultDiv.style.display = 'block';
-                    resultDiv.innerHTML = '<div style="text-align: center; color: #ff9800;">No speech detected. Please try again.</div>';
+                const modal = document.getElementById('pronunciation-modal');
+                const resultDiv = document.getElementById('pronunciation-result');
+                if (modal && resultDiv) {
+                    modal.style.display = 'flex';
+                    resultDiv.innerHTML = '<div style="text-align: center; padding: 40px; color: #ff9800; font-size: 1.1rem;">No speech detected. Please try again.</div>';
                 }
             }
         };
@@ -1702,9 +1703,13 @@ async function startPronunciationPractice() {
                 errorMsg = 'Speech recognition error. Please try again.';
             }
             
-            if (errorMsg && resultDiv) {
-                resultDiv.style.display = 'block';
-                resultDiv.innerHTML = `<div style="text-align: center; color: #f44336;">${errorMsg}</div>`;
+            if (errorMsg) {
+                const modal = document.getElementById('pronunciation-modal');
+                const resultDiv = document.getElementById('pronunciation-result');
+                if (modal && resultDiv) {
+                    modal.style.display = 'flex';
+                    resultDiv.innerHTML = `<div style="text-align: center; padding: 40px; color: #f44336; font-size: 1.1rem;">${errorMsg}</div>`;
+                }
             }
         };
         
@@ -1719,10 +1724,7 @@ async function startPronunciationPractice() {
         
         recognition.onstart = () => {
             console.log('Speech recognition started');
-            if (resultDiv) {
-                resultDiv.style.display = 'none';
-                resultDiv.innerHTML = '';
-            }
+            // Don't show modal while listening
         };
     }
     
@@ -1749,20 +1751,23 @@ async function startPronunciationPractice() {
         stream.getTracks().forEach(track => track.stop());
     } catch (error) {
         console.error('Microphone permission error:', error);
+        const modal = document.getElementById('pronunciation-modal');
+        const resultDiv = document.getElementById('pronunciation-result');
+        
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-            if (resultDiv) {
-                resultDiv.style.display = 'block';
-                resultDiv.innerHTML = '<div style="text-align: center; color: #f44336;">⚠️ Microphone permission denied. Please allow microphone access in your browser settings and try again.</div>';
+            if (modal && resultDiv) {
+                modal.style.display = 'flex';
+                resultDiv.innerHTML = '<div style="text-align: center; padding: 40px; color: #f44336; font-size: 1.1rem;">⚠️ Microphone permission denied. Please allow microphone access in your browser settings and try again.</div>';
             }
         } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-            if (resultDiv) {
-                resultDiv.style.display = 'block';
-                resultDiv.innerHTML = '<div style="text-align: center; color: #f44336;">⚠️ No microphone found. Please connect a microphone and try again.</div>';
+            if (modal && resultDiv) {
+                modal.style.display = 'flex';
+                resultDiv.innerHTML = '<div style="text-align: center; padding: 40px; color: #f44336; font-size: 1.1rem;">⚠️ No microphone found. Please connect a microphone and try again.</div>';
             }
         } else {
-            if (resultDiv) {
-                resultDiv.style.display = 'block';
-                resultDiv.innerHTML = '<div style="text-align: center; color: #f44336;">⚠️ Microphone access error. Please check your microphone settings and try again.</div>';
+            if (modal && resultDiv) {
+                modal.style.display = 'flex';
+                resultDiv.innerHTML = '<div style="text-align: center; padding: 40px; color: #f44336; font-size: 1.1rem;">⚠️ Microphone access error. Please check your microphone settings and try again.</div>';
             }
         }
         isRecording = false;
@@ -1782,10 +1787,8 @@ async function startPronunciationPractice() {
         pronunciationBtn.disabled = false;
     }
     
-    if (resultDiv) {
-        resultDiv.style.display = 'block';
-        resultDiv.innerHTML = '<div style="text-align: center;">🎤 Listening... Speak the word now.</div>';
-    }
+    // Don't show modal while listening, just show in console
+    console.log('Listening for pronunciation...');
     
     try {
         // Add a small delay to ensure recognition is ready
@@ -1802,19 +1805,23 @@ async function startPronunciationPractice() {
             pronunciationBtn.innerHTML = '<span class="audio-icon">🎤</span><span class="audio-label">Practice</span>';
             pronunciationBtn.disabled = false;
         }
-        if (resultDiv) {
-            resultDiv.style.display = 'block';
-            resultDiv.innerHTML = '<div style="text-align: center; color: #f44336;">Failed to start recording. Please try again.</div>';
+        const modal = document.getElementById('pronunciation-modal');
+        const resultDiv = document.getElementById('pronunciation-result');
+        if (modal && resultDiv) {
+            modal.style.display = 'flex';
+            resultDiv.innerHTML = '<div style="text-align: center; padding: 40px; color: #f44336; font-size: 1.1rem;">Failed to start recording. Please try again.</div>';
         }
     }
 }
 
 async function evaluatePronunciation(targetWord, userSpeech) {
+    const modal = document.getElementById('pronunciation-modal');
     const resultDiv = document.getElementById('pronunciation-result');
-    if (!resultDiv) return;
+    if (!modal || !resultDiv) return;
     
-    resultDiv.style.display = 'block';
-    resultDiv.innerHTML = '<div style="text-align: center;">Analyzing pronunciation...</div>';
+    // Show modal
+    modal.style.display = 'flex';
+    resultDiv.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">Analyzing pronunciation...</div>';
     
     try {
         // Call backend API for pronunciation evaluation
@@ -1896,8 +1903,9 @@ function simplePronunciationCheck(targetWord, userSpeech) {
 }
 
 function displayPronunciationResult(result) {
+    const modal = document.getElementById('pronunciation-modal');
     const resultDiv = document.getElementById('pronunciation-result');
-    if (!resultDiv) return;
+    if (!modal || !resultDiv) return;
     
     const similarity = result.similarity || 0;
     let scoreClass = 'poor';
@@ -1933,7 +1941,11 @@ function displayPronunciationResult(result) {
     }
     
     resultDiv.innerHTML = html;
-    resultDiv.style.display = 'block';
+    // Modal is already displayed from evaluatePronunciation
+    // Ensure modal is visible
+    if (modal && modal.style.display !== 'flex') {
+        modal.style.display = 'flex';
+    }
 }
 
 // Initialize app when DOM is ready

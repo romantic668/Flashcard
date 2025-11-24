@@ -28,10 +28,20 @@
                 <div class="module-card">
                     <div class="module-header">
                         <div>
-                            <h3 class="module-title">Deck Explorer</h3>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <h3 class="module-title">Deck Explorer</h3>
+                                <button class="help-btn" data-help="explorer" title="使用说明 / Usage Guide">❓</button>
+                            </div>
                             <p class="module-subtitle">Browse and filter your flashcard decks by difficulty</p>
                         </div>
                         <button id="cleanup-empty-decks-btn" class="cleanup-btn" title="Delete all empty decks">🗑️ Cleanup Empty</button>
+                    </div>
+                    <div class="help-panel" id="help-explorer" style="display: none;">
+                        <div class="help-content">
+                            <h4>📚 使用说明 / Usage Guide</h4>
+                            <p><strong>中文：</strong>浏览和管理您的卡片组。使用难度筛选按钮（All/Easy/Medium/Hard/Unrated）过滤卡片组。点击卡片组名称开始学习。点击"🗑️ Cleanup Empty"删除所有空卡片组。</p>
+                            <p><strong>English:</strong> Browse and manage your flashcard decks. Use difficulty filter buttons (All/Easy/Medium/Hard/Unrated) to filter decks. Click on a deck name to start studying. Click "🗑️ Cleanup Empty" to delete all empty decks.</p>
+                        </div>
                     </div>
                     <div class="filter-chips">
                         <button class="filter-chip active" data-filter="all">All</button>
@@ -48,8 +58,20 @@
                 <!-- Middle Module: Generate Flashcards from URL -->
                 <div class="module-card">
                     <div class="module-header">
-                        <h3 class="module-title">Generate Flashcards from URL</h3>
-                        <p class="module-subtitle">Extract vocabulary from any webpage automatically</p>
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <h3 class="module-title">Generate Flashcards from URL</h3>
+                                <button class="help-btn" data-help="generate" title="使用说明 / Usage Guide">❓</button>
+                            </div>
+                            <p class="module-subtitle">Extract vocabulary from any webpage automatically</p>
+                        </div>
+                    </div>
+                    <div class="help-panel" id="help-generate" style="display: none;">
+                        <div class="help-content">
+                            <h4>🔗 使用说明 / Usage Guide</h4>
+                            <p><strong>中文：</strong>从任何网页自动提取词汇并生成卡片。1) 选择您的英语水平（CEFR等级）。2) 输入文章URL。3) 设置要提取的单词数量（5-50）。4) 点击"Create Cards"创建卡片，或"Quick Preview"预览单词。系统会自动识别符合您水平的生词。</p>
+                            <p><strong>English:</strong> Automatically extract vocabulary from any webpage and generate flashcards. 1) Select your English level (CEFR). 2) Enter article URL. 3) Set number of words to extract (5-50). 4) Click "Create Cards" to create flashcards, or "Quick Preview" to preview words. The system automatically identifies new words matching your level.</p>
+                        </div>
                     </div>
                     <div class="module-form">
                         <div class="form-group">
@@ -82,8 +104,20 @@
                 <!-- Right Module: AI Chat -->
                 <div class="module-card">
                     <div class="module-header">
-                        <h3 class="module-title">AI Chat with Your Card Deck</h3>
-                        <p class="module-subtitle">Ask questions and get help with your flashcards</p>
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <h3 class="module-title">AI Chat with Your Card Deck</h3>
+                                <button class="help-btn" data-help="ai-chat" title="使用说明 / Usage Guide">❓</button>
+                            </div>
+                            <p class="module-subtitle">Ask questions and get help with your flashcards</p>
+                        </div>
+                    </div>
+                    <div class="help-panel" id="help-ai-chat" style="display: none;">
+                        <div class="help-content">
+                            <h4>🤖 使用说明 / Usage Guide</h4>
+                            <p><strong>中文：</strong>与AI助手互动学习您的卡片。1) 选择要查询的卡片组。2) 在输入框中提问，例如："Quiz me"（测试我）、"Explain [word]"（解释单词）、"Show random cards"（显示随机卡片）、"Give examples"（给例子）、"What's the hardest word?"（最难单词是什么）、"Help me study"（帮我学习）、"Statistics"（统计信息）等。3) 点击"Ask AI"获取回答。</p>
+                            <p><strong>English:</strong> Interact with AI assistant to learn your flashcards. 1) Select a deck to query. 2) Ask questions in the input box, such as: "Quiz me", "Explain [word]", "Show random cards", "Give examples", "What's the hardest word?", "Help me study", "Statistics", etc. 3) Click "Ask AI" to get responses.</p>
+                        </div>
                     </div>
                     <div class="module-form">
                         <div class="form-group">
@@ -109,9 +143,19 @@
         <div id="study-screen" class="screen">
             <div class="study-header">
                 <button id="back-btn" class="back-btn">← Back</button>
-                <h2 id="current-deck-name"></h2>
+                <div style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <h2 id="current-deck-name"></h2>
+                    <button class="help-btn" data-help="study" title="使用说明 / Usage Guide">❓</button>
+                </div>
                 <div class="progress">
                     <span id="card-number">1</span> / <span id="total-cards">10</span>
+                </div>
+            </div>
+            <div class="help-panel" id="help-study" style="display: none; margin: 20px; max-width: 800px; margin-left: auto; margin-right: auto;">
+                <div class="help-content">
+                    <h4>📖 使用说明 / Usage Guide</h4>
+                    <p><strong>中文：</strong>学习界面使用指南：1) 点击卡片或"Flip Card"按钮翻转卡片查看答案。2) 使用"🔊 Read Word"按钮听单词发音（美式英语）。3) 使用"🎤 Practice"按钮练习发音，系统会评估您的发音并给出反馈。4) 翻转后，点击"I forgot"或"I knew this"标记掌握情况。5) 点击"Next Card"进入下一张卡片。6) 进度显示当前卡片位置。</p>
+                    <p><strong>English:</strong> Study interface guide: 1) Click the card or "Flip Card" button to flip and see the answer. 2) Use "🔊 Read Word" button to hear word pronunciation (American accent). 3) Use "🎤 Practice" button to practice pronunciation - the system will evaluate and provide feedback. 4) After flipping, click "I forgot" or "I knew this" to mark your mastery. 5) Click "Next Card" to proceed. 6) Progress shows current card position.</p>
                 </div>
             </div>
 

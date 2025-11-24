@@ -470,7 +470,11 @@ function setupEventListeners() {
     }
     
     // Close pronunciation modal function
-    function closePronunciationModal() {
+    function closePronunciationModal(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
         const pronunciationModal = document.getElementById('pronunciation-modal');
         if (pronunciationModal) {
             pronunciationModal.style.display = 'none';
@@ -481,27 +485,44 @@ function setupEventListeners() {
     const closeModalBtn = document.getElementById('close-pronunciation-modal');
     if (closeModalBtn) {
         closeModalBtn.addEventListener('click', (e) => {
+            e.preventDefault();
             e.stopPropagation();
-            closePronunciationModal();
+            e.stopImmediatePropagation();
+            closePronunciationModal(e);
         });
     }
     
     // Close modal when clicking overlay (outside modal content)
     const pronunciationModal = document.getElementById('pronunciation-modal');
     if (pronunciationModal) {
-        // Click on modal itself (overlay area) should close
+        // Click on modal overlay should close and prevent any other actions
+        const overlay = pronunciationModal.querySelector('.modal-overlay');
+        if (overlay) {
+            overlay.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                closePronunciationModal(e);
+            });
+        }
+        
+        // Click on modal container (but not content) should also close
         pronunciationModal.addEventListener('click', (e) => {
-            // Only close if clicking directly on the modal container (overlay), not on modal-content
-            if (e.target === pronunciationModal || e.target.classList.contains('modal-overlay')) {
-                closePronunciationModal();
+            // Only close if clicking directly on the modal container, not on modal-content
+            if (e.target === pronunciationModal) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                closePronunciationModal(e);
             }
         });
         
-        // Prevent closing when clicking inside modal content
+        // Prevent closing when clicking inside modal content and stop propagation
         const modalContent = pronunciationModal.querySelector('.modal-content');
         if (modalContent) {
             modalContent.addEventListener('click', (e) => {
                 e.stopPropagation();
+                e.stopImmediatePropagation();
             });
         }
     }
@@ -511,9 +532,32 @@ function setupEventListeners() {
         if (e.key === 'Escape') {
             const pronunciationModal = document.getElementById('pronunciation-modal');
             if (pronunciationModal && pronunciationModal.style.display === 'flex') {
-                closePronunciationModal();
+                e.preventDefault();
+                e.stopPropagation();
+                closePronunciationModal(e);
             }
         }
+    });
+    
+    // Help button toggle
+    const helpButtons = document.querySelectorAll('.help-btn');
+    helpButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const helpId = btn.getAttribute('data-help');
+            const helpPanel = document.getElementById(`help-${helpId}`);
+            if (helpPanel) {
+                const isVisible = helpPanel.style.display !== 'none';
+                helpPanel.style.display = isVisible ? 'none' : 'block';
+                // Update button appearance
+                if (isVisible) {
+                    btn.style.background = 'rgba(74, 144, 226, 0.1)';
+                } else {
+                    btn.style.background = 'rgba(74, 144, 226, 0.25)';
+                    btn.style.borderColor = 'var(--primary-color)';
+                }
+            }
+        });
     });
     
     // URL generation
@@ -657,7 +701,17 @@ function displayCard() {
     }
 }
 
-function flipCard() {
+function flipCard(e) {
+    // Don't flip if modal is open
+    const pronunciationModal = document.getElementById('pronunciation-modal');
+    if (pronunciationModal && pronunciationModal.style.display === 'flex') {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        return;
+    }
+    
     isFlipped = !isFlipped;
     const flashcardEl = document.getElementById('flashcard');
     if (flashcardEl) {

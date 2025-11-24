@@ -469,32 +469,50 @@ function setupEventListeners() {
         });
     }
     
-    // Close pronunciation modal
-    const closeModalBtn = document.getElementById('close-pronunciation-modal');
-    const pronunciationModal = document.getElementById('pronunciation-modal');
+    // Close pronunciation modal function
+    function closePronunciationModal() {
+        const pronunciationModal = document.getElementById('pronunciation-modal');
+        if (pronunciationModal) {
+            pronunciationModal.style.display = 'none';
+        }
+    }
     
+    // Close button
+    const closeModalBtn = document.getElementById('close-pronunciation-modal');
     if (closeModalBtn) {
-        closeModalBtn.addEventListener('click', () => {
-            if (pronunciationModal) {
-                pronunciationModal.style.display = 'none';
-            }
+        closeModalBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closePronunciationModal();
         });
     }
     
-    // Close modal when clicking overlay
+    // Close modal when clicking overlay (outside modal content)
+    const pronunciationModal = document.getElementById('pronunciation-modal');
     if (pronunciationModal) {
-        const overlay = pronunciationModal.querySelector('.modal-overlay');
-        if (overlay) {
-            overlay.addEventListener('click', () => {
-                pronunciationModal.style.display = 'none';
+        // Click on modal itself (overlay area) should close
+        pronunciationModal.addEventListener('click', (e) => {
+            // Only close if clicking directly on the modal container (overlay), not on modal-content
+            if (e.target === pronunciationModal || e.target.classList.contains('modal-overlay')) {
+                closePronunciationModal();
+            }
+        });
+        
+        // Prevent closing when clicking inside modal content
+        const modalContent = pronunciationModal.querySelector('.modal-content');
+        if (modalContent) {
+            modalContent.addEventListener('click', (e) => {
+                e.stopPropagation();
             });
         }
     }
     
     // Close modal with Escape key
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && pronunciationModal && pronunciationModal.style.display === 'flex') {
-            pronunciationModal.style.display = 'none';
+        if (e.key === 'Escape') {
+            const pronunciationModal = document.getElementById('pronunciation-modal');
+            if (pronunciationModal && pronunciationModal.style.display === 'flex') {
+                closePronunciationModal();
+            }
         }
     });
     

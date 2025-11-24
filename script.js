@@ -469,6 +469,35 @@ function setupEventListeners() {
         });
     }
     
+    // Close pronunciation modal
+    const closeModalBtn = document.getElementById('close-pronunciation-modal');
+    const pronunciationModal = document.getElementById('pronunciation-modal');
+    
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', () => {
+            if (pronunciationModal) {
+                pronunciationModal.style.display = 'none';
+            }
+        });
+    }
+    
+    // Close modal when clicking overlay
+    if (pronunciationModal) {
+        const overlay = pronunciationModal.querySelector('.modal-overlay');
+        if (overlay) {
+            overlay.addEventListener('click', () => {
+                pronunciationModal.style.display = 'none';
+            });
+        }
+    }
+    
+    // Close modal with Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && pronunciationModal && pronunciationModal.style.display === 'flex') {
+            pronunciationModal.style.display = 'none';
+        }
+    });
+    
     // URL generation
     const generateBtn = document.getElementById('generate-btn');
     const urlInput = document.getElementById('url-input');

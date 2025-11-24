@@ -356,13 +356,14 @@ h1 {
 .flashcard-container {
     perspective: 1000px;
     margin: 30px 0;
-    min-height: 300px;
+    min-height: 400px;
 }
 
 .flashcard {
     position: relative;
     width: 100%;
-    height: 300px;
+    min-height: 400px;
+    height: auto;
     transform-style: preserve-3d;
     transition: transform 0.6s;
     cursor: pointer;
@@ -376,14 +377,16 @@ h1 {
 .card-back {
     position: absolute;
     width: 100%;
-    height: 100%;
+    min-height: 400px;
+    height: auto;
     backface-visibility: hidden;
     border-radius: 15px;
     box-shadow: var(--shadow-hover);
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     background: var(--card-bg);
+    overflow: hidden;
 }
 
 .card-front {
@@ -398,15 +401,44 @@ h1 {
 }
 
 .card-content {
-    padding: 30px;
+    padding: 20px;
     text-align: center;
     width: 100%;
+    max-height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-sizing: border-box;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Custom scrollbar for card content */
+.card-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.card-content::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+.card-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+}
+
+.card-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
 }
 
 .card-content h3 {
     font-size: 1.5rem;
     line-height: 1.6;
     word-wrap: break-word;
+    margin: 0 0 15px 0;
+    flex-shrink: 0;
 }
 
 .card-front .card-content h3,
@@ -425,8 +457,10 @@ h1 {
     display: flex;
     gap: 10px;
     justify-content: center;
-    margin-top: 20px;
+    margin-top: 15px;
+    margin-bottom: 15px;
     flex-wrap: wrap;
+    flex-shrink: 0;
 }
 
 .audio-btn {
@@ -497,21 +531,28 @@ h1 {
 
 /* Pronunciation Result */
 .pronunciation-result {
-    margin-top: 20px;
+    margin-top: 15px;
     padding: 15px;
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.2);
     border-radius: 10px;
     backdrop-filter: blur(10px);
     color: white;
     font-size: 0.9rem;
     line-height: 1.6;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    text-align: left;
 }
 
 .pronunciation-result .score {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     font-weight: 700;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
     text-align: center;
+    padding-bottom: 10px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.3);
 }
 
 .pronunciation-result .score.excellent {
@@ -531,24 +572,40 @@ h1 {
 }
 
 .pronunciation-result .phonemes {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.pronunciation-result .phonemes strong {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 1rem;
 }
 
 .pronunciation-result .suggestions {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-.pronunciation-result .suggestions ul {
-    margin: 5px 0 0 20px;
+.pronunciation-result .suggestions strong {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 1rem;
+}
+
+.pronunciation-result .suggestions ul,
+.pronunciation-result .phonemes ul {
+    margin: 8px 0 0 20px;
     padding: 0;
+    list-style-type: disc;
 }
 
-.pronunciation-result .suggestions li {
-    margin: 5px 0;
+.pronunciation-result .suggestions li,
+.pronunciation-result .phonemes li {
+    margin: 6px 0;
+    line-height: 1.5;
 }
 
 /* Mobile responsiveness for audio controls */
@@ -711,11 +768,18 @@ h1 {
     }
 
     .flashcard-container {
-        min-height: 250px;
+        min-height: 350px;
     }
 
     .flashcard {
-        height: 250px;
+        min-height: 350px;
+        height: auto;
+    }
+    
+    .card-front,
+    .card-back {
+        min-height: 350px;
+        height: auto;
     }
 
     .card-content h3 {

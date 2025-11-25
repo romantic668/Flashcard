@@ -308,10 +308,15 @@ function updateDeckGrid() {
         
         categoryDiv.innerHTML = `
             <div class="category-header" style="border-left: 4px solid ${cefrInfo.color}">
-                <h3 class="category-title">${cefrInfo.icon} ${cefrInfo.label}</h3>
+                <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                    <button class="category-toggle" aria-label="Toggle category">
+                        <span class="toggle-icon">▼</span>
+                    </button>
+                    <h3 class="category-title">${cefrInfo.icon} ${cefrInfo.label}</h3>
+                </div>
                 <span class="category-count">${levelDecks.length} deck${levelDecks.length !== 1 ? 's' : ''}</span>
             </div>
-            <div class="deck-grid"></div>
+            <div class="deck-grid category-content" style="display: grid;"></div>
         `;
         
         const deckGrid = categoryDiv.querySelector('.deck-grid');
@@ -327,6 +332,52 @@ function updateDeckGrid() {
     
     // Re-attach event listeners for all deck cards
     setupDeckEventListeners();
+    
+    // Setup category toggle functionality
+    setupCategoryToggles();
+}
+
+// Setup category toggle (collapse/expand) functionality
+function setupCategoryToggles() {
+    const categoryHeaders = document.querySelectorAll('.category-header');
+    categoryHeaders.forEach(header => {
+        const toggleBtn = header.querySelector('.category-toggle');
+        const categoryDiv = header.closest('.deck-category');
+        const deckGrid = categoryDiv.querySelector('.deck-grid');
+        const toggleIcon = toggleBtn.querySelector('.toggle-icon');
+        
+        // Default: expanded
+        deckGrid.style.display = 'grid';
+        toggleIcon.textContent = '▼';
+        categoryDiv.classList.add('expanded');
+        
+        // Toggle function
+        const toggleCategory = (e) => {
+            if (e) {
+                e.stopPropagation(); // Prevent event bubbling
+            }
+            
+            const isExpanded = categoryDiv.classList.contains('expanded');
+            
+            if (isExpanded) {
+                // Collapse
+                deckGrid.style.display = 'none';
+                toggleIcon.textContent = '▶';
+                categoryDiv.classList.remove('expanded');
+            } else {
+                // Expand
+                deckGrid.style.display = 'grid';
+                toggleIcon.textContent = '▼';
+                categoryDiv.classList.add('expanded');
+            }
+        };
+        
+        // Make entire header clickable
+        header.addEventListener('click', toggleCategory);
+        
+        // Also allow clicking just the button
+        toggleBtn.addEventListener('click', toggleCategory);
+    });
 }
 
 // Create a deck card element
@@ -1417,6 +1468,10 @@ function setupBottomNavigation() {
     navItems.forEach(item => {
         item.addEventListener('click', () => {
             const view = item.dataset.view;
+            
+            // First, always switch to deck-selection screen (hide study-screen if active)
+            // This ensures navigation works even when user is studying cards
+            showDeckSelection();
             
             // Remove active class from all nav items
             navItems.forEach(nav => nav.classList.remove('active'));
